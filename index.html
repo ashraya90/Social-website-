@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ne">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SEE Social Studies Practice</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Noto+Sans+Devanagari:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f7f7f5;--fg:#16181d;--mu:#6b7280;--cd:#fff;--bd:#e4e4e0;--ac:#0f766e;--ac2:#e6f4f1}
+[data-theme=dark]{--bg:#101215;--fg:#eceef1;--mu:#98a0ab;--cd:#171a1f;--bd:#262b33;--ac:#5eead4;--ac2:#14302c}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.7 Inter,"Noto Sans Devanagari",system-ui,sans-serif}
+main{max-width:720px;margin:0 auto;padding:16px 16px 96px}
+header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:8px}
+h1{font-size:20px;margin:0;line-height:1.4}
+#stats{color:var(--mu);font-size:14px;margin:0 0 16px}
+button,select,input{font:inherit;color:inherit}
+button{min-height:44px;padding:0 16px;background:var(--cd);border:1px solid var(--bd);border-radius:12px;cursor:pointer}
+button.on{background:var(--ac2);border-color:var(--ac);color:var(--ac)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.f{display:grid;gap:8px;margin-bottom:16px}
+.f select,.f input{width:100%;min-height:44px;padding:0 12px;background:var(--cd);border:1px solid var(--bd);border-radius:12px}
+.ch{display:flex;gap:8px;flex-wrap:wrap}
+.c{background:var(--cd);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:12px}
+.m{color:var(--mu);font-size:13px;margin-bottom:8px}
+.c p{margin:0 0 8px}
+.c p.a{padding-left:12px;border-left:2px solid var(--bd)}
+.b{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.nav{justify-content:space-between;align-items:center}
+.w{width:100%}
+.e{color:var(--mu);text-align:center;padding:32px 0}
+.bar{height:4px;background:var(--bd);border-radius:2px;margin-top:16px}
+.bar i{display:block;height:100%;background:var(--ac);border-radius:2px}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--cd);border-top:1px solid var(--bd);padding:8px 8px calc(8px + env(safe-area-inset-bottom))}
+nav button{flex:1;border:0;background:none;border-radius:12px}
+nav button.on{background:var(--ac2)}
+#load{background:var(--cd);border:1px dashed var(--bd);border-radius:12px;padding:24px;text-align:center}
+</style>
+</head>
+<body>
+<main>
+<header><h1>SEE Social Studies Practice</h1><button id="th" aria-label="Toggle dark mode">Dark</button></header>
+<p id="stats">Loading questions</p>
+<div id="load" hidden><p>Could not load questions.md. Choose the file to continue.</p><input type="file" id="fi" accept=".md,.txt"></div>
+<div class="f" id="fl" hidden>
+<select id="set" aria-label="Exam set"></select>
+<div class="ch" id="gr"></div>
+<input id="sr" type="search" placeholder="Search questions" aria-label="Search questions">
+</div>
+<div id="list"></div>
+</main>
+<nav><button data-t="browse" class="on">Browse</button><button data-t="practice">Practice</button><button data-t="saved">Saved</button></nav>
+<script>
+const $=s=>document.querySelector(s);
+const ST=JSON.parse(localStorage.getItem('st')||'{"s":{},"d":{}}');
+const save=()=>localStorage.setItem('st',JSON.stringify(ST));
+const MK={'क':1,'ख':4,'ग':7};
+let Q=[],SETS=[],tab='browse',set='all',grp='all',q='',shown=30,pi=0,RV={},shuf=false;
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function parse(t){
+  let si=0,sn='',g='',cur=null;Q=[];SETS=[];
+  for(const raw of t.split('\n')){
+    const l=raw.trimEnd();let m;
+    if(m=l.match(/^## (.+)/)){si++;sn=m[1].split(':')[0].trim();SETS.push(sn);g='';cur=null}
+    else if(m=l.match(/^### समूह '(.)'/)){g=m[1];cur=null}
+    else if(si&&g&&(m=l.match(/^([०-९]+)\.\s+(.+)/))){cur={id:si+'-'+m[1],n:m[1],set:sn,si,g,mk:MK[g],t:m[2],alts:[]};Q.push(cur)}
+    else if(cur&&(m=l.match(/^\s*\*\*(अथवा[^*]*)\*\*\s*(.+)/)))cur.alts.push({l:m[1].trim(),t:m[2]});
+  }
+}
+function filt(){
+  let L=Q.filter(x=>(set=='all'||x.si==set)&&(grp=='all'||x.g==grp)&&(tab!='saved'||ST.s[x.id])&&(!q||(x.t+' '+x.alts.map(a=>a.t).join(' ')).includes(q)));
+  if(tab=='practice'&&shuf)L.sort((a,b)=>RV[a.id]-RV[b.id]);
+  return L;
+}
+const card=x=>`<article class="c"><div class="m">${esc(x.set)}, Group ${x.g}, ${x.mk} ${x.mk>1?'marks':'mark'}, Q ${x.n}</div><p>${esc(x.t)}</p>${x.alts.map(a=>`<p class="a"><b>${esc(a.l)}</b> ${esc(a.t)}</p>`).join('')}<div class="b"><button data-s="${x.id}" class="${ST.s[x.id]?'on':''}">${ST.s[x.id]?'Saved':'Save'}</button><button data-d="${x.id}" class="${ST.d[x.id]?'on':''}">${ST.d[x.id]?'Done':'Mark done'}</button></div></article>`;
+
+function render(){
+  const L=filt(),list=$('#list');
+  $('#stats').textContent=`${Q.length} questions, ${Object.keys(ST.d).length} done, ${Object.keys(ST.s).length} saved`;
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t==tab));
+  if(!L.length){list.innerHTML=`<p class="e">${tab=='saved'?'Nothing saved yet. Tap Save on any question.':'No questions match these filters.'}</p>`;return}
+  if(tab=='practice'){
+    pi=Math.min(pi,L.length-1);
+    list.innerHTML=card(L[pi])+`<div class="b nav"><button id="pv">Previous</button><span>${pi+1} of ${L.length}</span><button id="nx">Next</button></div><div class="b"><button id="sh" class="w ${shuf?'on':''}">${shuf?'Shuffled':'Shuffle'}</button></div><div class="bar"><i style="width:${(pi+1)/L.length*100}%"></i></div>`;
+    return;
+  }
+  list.innerHTML=L.slice(0,shown).map(card).join('')+(L.length>shown?'<button id="more" class="w">Show more</button>':'');
+}
+function chips(){
+  $('#gr').innerHTML=['all','क','ख','ग'].map(v=>`<button data-g="${v}" class="${grp==v?'on':''}">${v=='all'?'All groups':'Group '+v}</button>`).join('');
+}
+function init(t){
+  parse(t);
+  if(!Q.length){$('#load').hidden=false;$('#stats').textContent='No questions found in the file';return}
+  $('#load').hidden=true;$('#fl').hidden=false;
+  $('#set').innerHTML='<option value="all">All sets</option>'+SETS.map((s,i)=>`<option value="${i+1}">${esc(s)}</option>`).join('');
+  chips();render();
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  const d=b.dataset;
+  if(d.s){ST.s[d.s]?delete ST.s[d.s]:ST.s[d.s]=1;save();render()}
+  else if(d.d){ST.d[d.d]?delete ST.d[d.d]:ST.d[d.d]=1;save();render()}
+  else if(d.t){tab=d.t;pi=0;shown=30;render()}
+  else if(d.g){grp=d.g;pi=0;shown=30;chips();render()}
+  else if(b.id=='more'){shown+=30;render()}
+  else if(b.id=='nx'){pi=Math.min(pi+1,filt().length-1);render()}
+  else if(b.id=='pv'){pi=Math.max(pi-1,0);render()}
+  else if(b.id=='sh'){shuf=!shuf;Q.forEach(x=>RV[x.id]=Math.random());pi=0;render()}
+});
+$('#set').onchange=e=>{set=e.target.value;pi=0;shown=30;render()};
+let tm;$('#sr').oninput=e=>{clearTimeout(tm);tm=setTimeout(()=>{q=e.target.value.trim();pi=0;shown=30;render()},200)};
+$('#fi').onchange=e=>{const r=new FileReader();r.onload=()=>init(r.result);r.readAsText(e.target.files[0])};
+const root=document.documentElement,th=$('#th');
+const setTh=v=>{root.dataset.theme=v;th.textContent=v=='dark'?'Light':'Dark';localStorage.setItem('th',v)};
+setTh(localStorage.getItem('th')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'));
+th.onclick=()=>setTh(root.dataset.theme=='dark'?'light':'dark');
+fetch('questions.md').then(r=>r.ok?r.text():Promise.reject()).then(init).catch(()=>{$('#load').hidden=false;$('#stats').textContent=''});
+</script>
+</body>
+</html>
